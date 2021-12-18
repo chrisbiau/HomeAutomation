@@ -1,2 +1,2 @@
 # HomeAutomation
-Maison laseyne sur mer
+Home  LaSeyneSurMer
