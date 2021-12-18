@@ -1,6 +1,6 @@
 # Install and test mqtt server
 
-## Reference
+## Reference:
 
 [Elilo.net: Mqtt sur jeedom][linkId1]
 
@@ -19,13 +19,13 @@ Centos install:
 yum install mosquitto
 ```
 
-## Configuration
+## Configuration:
 
 ```
 /etc/mosquitto/mosquitto.conf
 ```
 
-## Commands
+## Commands:
 
 Status mosquitto service:
 ```
@@ -42,7 +42,7 @@ Start mosquitto service:
 /etc/init.d/mosquitto start
 ```
 
-## Test service
+## Test service:
 
 Listening topic *sensor/temperature*
 ```
@@ -54,7 +54,7 @@ Publish value *25* in topic : *sensor/temperature*
 root@jeedom:~#mosquitto_pub -h localhost -t "sensor/temperature" -m 25
 ```
 
-# Secure
+# Secure:
 
 __TODO: __ Ref [Secure the Mosquitto MQTT Messaging Broker][linkId2] 
 
