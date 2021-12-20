@@ -50,3 +50,5 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+*.log
+esp32-garage-door/garage-door-project/include/credentials.h
