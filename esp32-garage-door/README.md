@@ -29,13 +29,3 @@ Send state **open** or **close** door to mqtt server by topic: *"garage/door/sta
 
 [linkId2]: https://cdn-shop.adafruit.com/datasheets/txb0108.pdf "TXB0108 8-Bit Bidirectional Voltage-Level Translator With Auto-Direction Sensing (Rev. B)"
 
-
-
-https://docs.platformio.org/en/latest/projectconf/index.html
-https://github.com/platformio/platform-espressif32/blob/master/examples/espidf-hello-world/src/hello_world_main.c
-
-
-https://exploreembedded.com/wiki/Hello_World_with_ESP32_Explained
-
-
-wifi https://savjee.be/2020/02/esp32-keep-wifi-alive-with-freertos-task/

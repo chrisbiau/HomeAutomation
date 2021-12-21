@@ -6,8 +6,11 @@
 #include "config_board.h"
  
 
+
+
 #define ESP_INTR_FLAG_DEFAULT 0
 
+led_strip_t *pStrip_a;
 
 void config_input_gpio(void){
     //zero-initialize the config structure.
@@ -32,15 +35,42 @@ void config_input_gpio(void){
 }
 
 
-led_strip_t * configure_led(void)
+void configure_led(void)
 {
-
-    led_strip_t *pStrip_a;
     /* LED strip initialization with the GPIO and pixels number*/
     pStrip_a = led_strip_init(CONFIG_BLINK_LED_RMT_CHANNEL, BLINK_GPIO, 1);
     /* Set all LED off to clear all pixels */
     pStrip_a->clear(pStrip_a, 50);
-
-    return pStrip_a;
 }
 
+
+void change_led_color(DoorState door_state_t)
+{
+    switch (door_state_t)
+    {
+    case OPEN:
+        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
+        pStrip_a->set_pixel(pStrip_a, 0, 0, 0, 255);
+        break;
+    case CLOSE:
+        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
+        pStrip_a->set_pixel(pStrip_a, 0, 0, 255, 0);
+        break;
+    case MOVING:
+        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
+        pStrip_a->set_pixel(pStrip_a, 0, 50, 50, 50);
+        break;
+    case ALARM:
+        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
+        pStrip_a->set_pixel(pStrip_a, 0, 255, 0, 0);
+        break;
+    default:
+    case UNKNOWN:
+        /* Set all LED off to clear all pixels */
+        pStrip_a->clear(pStrip_a, 50);
+        break;
+    }
+
+    /* Refresh the strip to send data */
+    pStrip_a->refresh(pStrip_a, 100);
+}

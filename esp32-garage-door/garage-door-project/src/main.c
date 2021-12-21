@@ -10,68 +10,31 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "chip_info.h"
-
+#include "freertos/queue.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "nvs_flash.h"
+#include "chip_info.h"
 #include "led_strip.h"
 #include "config_board.h"
+#include "door_state_enum.h"
+#include "home_wifi.h"
 
-#include "freertos/queue.h"
+#define ALERT_THRESHOLD_US  10000000LL //10sec
 
 static const char *TAG = "Main";
-/* Use project configuration menu (idf.py menuconfig) to choose the GPIO to blink,
-   or you can edit the following line and set a number here.
-*/
-
-enum DoorState
-{
-    UNKNOWN = 0, /**< Unknown door state */
-    OPEN,        /**< Door is open */
-    CLOSE,       /**< Door is close */
-    INMVT,       /**< Door is in mouvemnt */
-    ALARM        /**< Door alarm not in open or not in close */
-}door_state_model;
-
-static led_strip_t *pStrip_a;
 static xQueueHandle gpio_evt_queue = NULL;
 
 
-static void change_led_color(enum DoorState door_state_t)
+DoorState door_state_model;
+int64_t lastTimeMsStateMOVING;
+
+void changeStateModel(DoorState state)
 {
-    switch (door_state_t)
-    {
-    case OPEN:
-
-        ESP_LOGI(TAG, "OPEN");
-        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
-        pStrip_a->set_pixel(pStrip_a, 0, 0, 0, 255);
-        break;
-    case CLOSE:
-        ESP_LOGI(TAG, "CLOSE");
-        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
-        pStrip_a->set_pixel(pStrip_a, 0, 0, 255, 0);
-        break;
-    case INMVT:
-        ESP_LOGI(TAG, "INMVT");
-        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
-        pStrip_a->set_pixel(pStrip_a, 0, 50, 50, 50);
-        break;
-    case ALARM:
-        ESP_LOGI(TAG, "ALARM");
-        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
-        pStrip_a->set_pixel(pStrip_a, 0, 255, 0, 0);
-        break;
-    default:
-    case UNKNOWN:
-        /* Set all LED off to clear all pixels */
-        ESP_LOGI(TAG, "UNKNOWN");
-        pStrip_a->clear(pStrip_a, 50);
-        break;
-    }
-
-    /* Refresh the strip to send data */
-    pStrip_a->refresh(pStrip_a, 100);
+    ESP_LOGI(TAG, "Door changes state %s to %s", doorStateToString(door_state_model), doorStateToString(state));
+    door_state_model = state;
+    change_led_color(door_state_model);
+    //TODO: NOTIFY MQTT ...
 }
 
 static void IRAM_ATTR gpio_isr_handler(void *arg)
@@ -80,7 +43,25 @@ static void IRAM_ATTR gpio_isr_handler(void *arg)
     xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
 }
 
-static void gpio_task_log(void *arg)
+void alarm_check(void *arg)
+{
+    int64_t delta;
+    for (;;)
+    {
+        if (door_state_model == MOVING)
+        {
+            delta = esp_timer_get_time() - lastTimeMsStateMOVING;
+            if (delta > ALERT_THRESHOLD_US)
+            {
+                ESP_LOGI(TAG, "LAST Time in MVT: %lld  us, delta time in us: %lld  us", lastTimeMsStateMOVING, delta);
+                changeStateModel(ALARM);
+            }
+        }
+        vTaskDelay(1000 / portTICK_RATE_MS);
+    }
+}
+
+void main_state_machine(void *arg)
 {
     uint32_t io_num;
     for (;;)
@@ -88,41 +69,76 @@ static void gpio_task_log(void *arg)
         if (xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY))
         {
             ESP_LOGI(TAG, "GPIO[%d] intr, val: %d", io_num, gpio_get_level(io_num));
-            
-            if(io_num == GPIO_INPUT_IO_1 &&  gpio_get_level(io_num) ==1 ){
-                door_state_model = OPEN;
-            }else if (io_num == GPIO_INPUT_IO_2 &&  gpio_get_level(io_num) ==1 ){
-                door_state_model = CLOSE;
-            }else{
-                 door_state_model = INMVT;
+            if (io_num == GPIO_INPUT_IO_1 && gpio_get_level(io_num) == 1)
+            {
+                changeStateModel(OPEN);
             }
-            change_led_color(door_state_model);
+            else if (io_num == GPIO_INPUT_IO_2 && gpio_get_level(io_num) == 1)
+            {
+                changeStateModel(CLOSE);
+            }
+            else
+            {
+                changeStateModel(MOVING);
+                lastTimeMsStateMOVING = esp_timer_get_time();
+            }
         }
     }
 }
 
 void app_main(void)
 {
-    print_chip_info();
+
+     print_chip_info();
+
+    //Initialize NVS
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+
+    wifi_init_sta();
+
+   
 
     /* Configure input sensor and attach handler */
     config_input_gpio();
     //create a queue to handle gpio event from isr
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
     //start gpio task
-    xTaskCreate(gpio_task_log, "gpio_task_log", 2048, NULL, 10, NULL);
+    xTaskCreate(main_state_machine, "main_state_machine", 2048, NULL, 10, NULL);
     //hook isr handler for specific gpio pin
     gpio_isr_handler_add(GPIO_INPUT_IO_1, gpio_isr_handler, (void *)GPIO_INPUT_IO_1);
     //hook isr handler for specific gpio pin
     gpio_isr_handler_add(GPIO_INPUT_IO_2, gpio_isr_handler, (void *)GPIO_INPUT_IO_2);
 
-    ESP_LOGI(TAG, "StartUp state value of GPIO%d, state: %d", GPIO_INPUT_IO_1, gpio_get_level(GPIO_INPUT_IO_1));
-    ESP_LOGI(TAG, "StartUp state value of GPIO%d, state: %d", GPIO_INPUT_IO_2, gpio_get_level(GPIO_INPUT_IO_2));
-
     /* Configure the peripheral according to the LED type */
-    pStrip_a = configure_led();
+    configure_led();
 
-    change_led_color(UNKNOWN);
+    //Init model
+    if (gpio_get_level(GPIO_INPUT_IO_1) == 0 && gpio_get_level(GPIO_INPUT_IO_2) == 0)
+    {
+        ESP_LOGI(TAG, "STARTUP: Door is not close or not open ... in mvt ?");
+        lastTimeMsStateMOVING = esp_timer_get_time();
+        changeStateModel(MOVING);
+    }else if (gpio_get_level(GPIO_INPUT_IO_1) == 1)
+    {
+        ESP_LOGI(TAG, "STARTUP: Door is open"); 
+        changeStateModel(OPEN);
+    }
+    else if (gpio_get_level(GPIO_INPUT_IO_2) == 1)
+    {
+        ESP_LOGI(TAG, "STARTUP: Door is close"); 
+        changeStateModel(OPEN);
+    }
+    else{   
+        changeStateModel(UNKNOWN);
+    }
+
+    //Run alarm task
+    xTaskCreate(alarm_check, "alarm_check", 2048, NULL, 10, NULL);
 
     while (1)
     {
