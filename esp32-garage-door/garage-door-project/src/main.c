@@ -15,74 +15,117 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "led_strip.h"
-#include "input_read_sensor.h"
+#include "config_board.h"
 
-
-#define BLINK_GPIO 18
-#define CONFIG_BLINK_LED_RMT_CHANNEL 2
+#include "freertos/queue.h"
 
 static const char *TAG = "Main";
 /* Use project configuration menu (idf.py menuconfig) to choose the GPIO to blink,
    or you can edit the following line and set a number here.
 */
 
-
-static bool s_led_state = true;
-
+enum DoorState
+{
+    UNKNOWN = 0, /**< Unknown door state */
+    OPEN,        /**< Door is open */
+    CLOSE,       /**< Door is close */
+    INMVT,       /**< Door is in mouvemnt */
+    ALARM        /**< Door alarm not in open or not in close */
+}door_state_model;
 
 static led_strip_t *pStrip_a;
+static xQueueHandle gpio_evt_queue = NULL;
 
-static void blink_led(void)
+
+static void change_led_color(enum DoorState door_state_t)
 {
-    /* If the addressable LED is enabled */
-    if (s_led_state) {
+    switch (door_state_t)
+    {
+    case OPEN:
+
+        ESP_LOGI(TAG, "OPEN");
         /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
-        pStrip_a->set_pixel(pStrip_a, 0, 16, 16, 16);
-        /* Refresh the strip to send data */
-        pStrip_a->refresh(pStrip_a, 100);
-    } else {
+        pStrip_a->set_pixel(pStrip_a, 0, 0, 0, 255);
+        break;
+    case CLOSE:
+        ESP_LOGI(TAG, "CLOSE");
+        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
+        pStrip_a->set_pixel(pStrip_a, 0, 0, 255, 0);
+        break;
+    case INMVT:
+        ESP_LOGI(TAG, "INMVT");
+        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
+        pStrip_a->set_pixel(pStrip_a, 0, 50, 50, 50);
+        break;
+    case ALARM:
+        ESP_LOGI(TAG, "ALARM");
+        /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
+        pStrip_a->set_pixel(pStrip_a, 0, 255, 0, 0);
+        break;
+    default:
+    case UNKNOWN:
         /* Set all LED off to clear all pixels */
+        ESP_LOGI(TAG, "UNKNOWN");
         pStrip_a->clear(pStrip_a, 50);
+        break;
+    }
+
+    /* Refresh the strip to send data */
+    pStrip_a->refresh(pStrip_a, 100);
+}
+
+static void IRAM_ATTR gpio_isr_handler(void *arg)
+{
+    uint32_t gpio_num = (uint32_t)arg;
+    xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
+}
+
+static void gpio_task_log(void *arg)
+{
+    uint32_t io_num;
+    for (;;)
+    {
+        if (xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY))
+        {
+            ESP_LOGI(TAG, "GPIO[%d] intr, val: %d", io_num, gpio_get_level(io_num));
+            
+            if(io_num == GPIO_INPUT_IO_1 &&  gpio_get_level(io_num) ==1 ){
+                door_state_model = OPEN;
+            }else if (io_num == GPIO_INPUT_IO_2 &&  gpio_get_level(io_num) ==1 ){
+                door_state_model = CLOSE;
+            }else{
+                 door_state_model = INMVT;
+            }
+            change_led_color(door_state_model);
+        }
     }
 }
-
-static void configure_led(void)
-{
-    /* LED strip initialization with the GPIO and pixels number*/
-    pStrip_a = led_strip_init(CONFIG_BLINK_LED_RMT_CHANNEL, BLINK_GPIO, 1);
-    /* Set all LED off to clear all pixels */
-    pStrip_a->clear(pStrip_a, 50);
-}
-
-
- 
-
-void blinky(void *pvParameter)
-{
-     while(1) {
-        ESP_LOGD(TAG, "Turning the LED %s!", s_led_state == true ? "ON" : "OFF");
-        blink_led();
-        /* Toggle the LED state */
-        s_led_state = !s_led_state;
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
-}
-
- 
 
 void app_main(void)
 {
     print_chip_info();
 
     /* Configure input sensor and attach handler */
-    config_input_snesor();
+    config_input_gpio();
+    //create a queue to handle gpio event from isr
+    gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
+    //start gpio task
+    xTaskCreate(gpio_task_log, "gpio_task_log", 2048, NULL, 10, NULL);
+    //hook isr handler for specific gpio pin
+    gpio_isr_handler_add(GPIO_INPUT_IO_1, gpio_isr_handler, (void *)GPIO_INPUT_IO_1);
+    //hook isr handler for specific gpio pin
+    gpio_isr_handler_add(GPIO_INPUT_IO_2, gpio_isr_handler, (void *)GPIO_INPUT_IO_2);
+
+    ESP_LOGI(TAG, "StartUp state value of GPIO%d, state: %d", GPIO_INPUT_IO_1, gpio_get_level(GPIO_INPUT_IO_1));
+    ESP_LOGI(TAG, "StartUp state value of GPIO%d, state: %d", GPIO_INPUT_IO_2, gpio_get_level(GPIO_INPUT_IO_2));
 
     /* Configure the peripheral according to the LED type */
-    configure_led();
+    pStrip_a = configure_led();
 
-    xTaskCreate(&blinky, "blinky", 2048,NULL,5,NULL );
+    change_led_color(UNKNOWN);
 
-    while(1) {
+    while (1)
+    {
         vTaskDelay(1000 / portTICK_RATE_MS);
     }
 }
