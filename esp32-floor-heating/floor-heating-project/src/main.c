@@ -59,6 +59,7 @@ void publish_mqtt_task(void *arg)
 	cJSON *root;
 	sensor_info sensor;
 	char hashStr[7];
+	char topic[sizeof(MQTT_PUBLISH_SENSOR) + sizeof(hashStr) + 2];
 	for (;;)
 	{
 		if (xQueueReceive(mqtt_pub_evt_queue, &sensor, portMAX_DELAY))
@@ -69,8 +70,9 @@ void publish_mqtt_task(void *arg)
 			cJSON_AddNumberToObject(root, "i", sensor.index);
 			cJSON_AddNumberToObject(root, "t", sensor.temperature);
 
-			int msg_id = esp_mqtt_client_publish(mqtt_client, MQTT_PUBLISH_SENSOR, cJSON_PrintUnformatted(root), 0, 1, 0);
-			ESP_LOGI(TAG, "sent publish successful msg_id=%d", msg_id);
+			snprintf(topic, sizeof(topic), "%s/%s", MQTT_PUBLISH_SENSOR, hashStr);
+			int msg_id = esp_mqtt_client_publish(mqtt_client, topic, cJSON_PrintUnformatted(root), 0, 1, 0);
+			ESP_LOGI(TAG, "sent topic %s publish successful msg_id=%d",topic, msg_id);
 			cJSON_Delete(root);
 		}
 	}
@@ -153,13 +155,11 @@ void read_temp_task(void *arg)
 			if (temp <= -196.0)
 			{
 				ESP_LOGE(TAG, "Failed to read from DS18B20 sensor  Hash: 0x%04x index: %d value: %0.1fCd", hash, i, temp);
-			}
-			else
-			{
+			}else{
 				ESP_LOGI(TAG, " Temperature: Hash: 0x%04x index: %d value: %0.1fC", hash, i, temp);
-				sensor_info sensor = {.hash = hash, .index = i, .temperature = temp};
-				xQueueSend(mqtt_pub_evt_queue, &sensor, (TickType_t)10);
 			}
+			sensor_info sensor = {.hash = hash, .index = i, .temperature = temp};
+			xQueueSend(mqtt_pub_evt_queue, &sensor, (TickType_t)10);
 		}
 		vTaskDelay(10000 / portTICK_RATE_MS); // 1sec
 	}

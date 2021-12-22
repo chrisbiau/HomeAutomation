@@ -1,5 +1,9 @@
 # ESP32 FLOOR HEATING
 
+*WARING*
+
+With this dev board --> Keep the **boot** bouton pressed to establish the connection when flash esp.
+
 # Specifications:
 * Get the temperatures of differents floor zone.
 * Send all sensor values to mqtt server.
