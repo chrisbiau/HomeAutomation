@@ -17,6 +17,12 @@
 
 #define ALERT_THRESHOLD_US 10000000LL //10sec
 
+#define MQTT_PUBLISH_STATE "/garage/door/state"
+#define MQTT_PUBLISH_EVENT "/garage/door/event"
+#define MQTT_SUBSCRIBE_CMD "/garage/door/command"
+#define MQTT_HOST "192.168.1.203"
+
+
 static const char *TAG = "Main";
 static xQueueHandle gpio_evt_queue = NULL;
 
@@ -27,7 +33,7 @@ int64_t lastTimeMsStateMOVING;
 
 void notify_mqtt_changeState(DoorState door_state_model)
 {
-    int msg_id = esp_mqtt_client_publish(mqtt_client, "/garage/door/state", doorStateToString(door_state_model), 0, 1, 0);
+    int msg_id = esp_mqtt_client_publish(mqtt_client, MQTT_PUBLISH_STATE, doorStateToString(door_state_model), 0, 1, 0);
     ESP_LOGI(TAG, "Sent publish successful, (change state to %s) msg_id=%d", doorStateToString(door_state_model), msg_id);
 }
 
@@ -56,7 +62,7 @@ void alarm_check(void *arg)
             if (delta > ALERT_THRESHOLD_US)
             {
                 ESP_LOGI(TAG, "LAST Time in MVT: %lld  us, delta time in us: %lld  us", lastTimeMsStateMOVING, delta);
-                change_state_model(ALARM);
+                change_state_model(ALERT);
             }
         }
         vTaskDelay(1000 / portTICK_RATE_MS);
@@ -116,10 +122,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
-        msg_id = esp_mqtt_client_publish(client, "/garage/door/event", "MQTT_EVENT_CONNECTED", 0, 1, 0);
+        msg_id = esp_mqtt_client_publish(client, MQTT_PUBLISH_EVENT, "MQTT_EVENT_CONNECTED", 0, 1, 0);
         ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
 
-        msg_id = esp_mqtt_client_subscribe(client, "/garage/door/command", 0);
+        msg_id = esp_mqtt_client_subscribe(client, MQTT_SUBSCRIBE_CMD, 0);
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_DISCONNECTED:
@@ -184,7 +190,7 @@ void app_main(void)
 
     ESP_LOGI(TAG, "***** Initialize MQTT *****");
     esp_mqtt_client_config_t mqtt_cfg = {
-        .host = "192.168.1.203",
+        .host = MQTT_HOST,
     };
 
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);

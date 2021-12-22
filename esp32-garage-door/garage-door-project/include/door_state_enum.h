@@ -10,7 +10,7 @@ typedef enum
     OPEN,        /**< Door is open */
     CLOSE,       /**< Door is close */
     MOVING,      /**< Door is moving */
-    ALARM        /**< Door alarm not in open or not in close */
+    ALERT        /**< Door alarm not in open or not in close */
 }DoorState ;
 
 char* doorStateToString(DoorState door_state_t);

@@ -4,10 +4,11 @@
 * Get the status of the door in jeedom.
 * Raise an alert if the door is not open or not close while X seconds.
 
-# Get status (MQTT PUBLISH):
+# Send status (MQTT PUBLISH):
+Send "MQTT_EVENT_CONNECTED" when mqtt client is connected to mqtt server by topic: *"/garage/door/event"*
 When door state change, ESP-32 send state **UNKNOWN**, **OPEN**, **CLOSE**, **IS_MOVING**, **ALARM** door to mqtt server by topic: *"/garage/door/state"*
 
-# Send command (MQTT SUBSCIRE): 
+# Receive command (MQTT SUBSCIRE): 
 Mqtt client can send command **OPEN**, **CLOSE**, **STATE** to the topic *"/garage/door/command*"
 
 # Hardware

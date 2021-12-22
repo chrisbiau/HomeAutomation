@@ -1,0 +1,5 @@
+.pio
+.vscode/*
+**/credentials.h
+sdkconfig.*
+CMakeLists.txt
