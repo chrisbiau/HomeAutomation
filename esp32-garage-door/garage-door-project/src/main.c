@@ -51,7 +51,7 @@ static void IRAM_ATTR gpio_isr_handler(void *arg)
     xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
 }
 
-void alarm_check(void *arg)
+void alert_check(void *arg)
 {
     int64_t delta;
     for (;;)
@@ -236,8 +236,8 @@ void app_main(void)
         change_state_model(UNKNOWN);
     }
 
-    ESP_LOGI(TAG, "***** Initialize ALARM TASK *****");
-    xTaskCreate(alarm_check, "alarm_check", 2048, NULL, 9, NULL);
+    ESP_LOGI(TAG, "***** Initialize ALERT TASK *****");
+    xTaskCreate(alert_check, "alert_check", 2048, NULL, 9, NULL);
 
     for (;;)
     {

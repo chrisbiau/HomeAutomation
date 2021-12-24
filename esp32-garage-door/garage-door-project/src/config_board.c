@@ -60,7 +60,7 @@ void change_led_color(DoorState door_state_t)
         /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
         pStrip_a->set_pixel(pStrip_a, 0, 50, 50, 50);
         break;
-    case ALARM:
+    case ALERT:
         /* Set the LED pixel using RGB from 0 (0%) to 255 (100%) for each color */
         pStrip_a->set_pixel(pStrip_a, 0, 255, 0, 0);
         break;

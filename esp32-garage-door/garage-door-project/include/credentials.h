@@ -5,4 +5,6 @@
 #define WIFI_SSID "Your SSID here"
 #define WIFI_PASSWD "WLAN AP password here"
 
-#endif
+// Replace with your actual SSID and password:
+#define WIFI_SSID "NETGEAR-2.4-G"
+#define WIFI_PASSWD "rien ne se perd, rien ne se cree, tout se transforme"
