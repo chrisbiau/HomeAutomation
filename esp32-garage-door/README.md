@@ -15,7 +15,7 @@ Mqtt client can send command **OPEN**, **CLOSE**, **STATE** to the topic *"/gara
 + Power
   + AZDelivery LM2596S Adaptateur d'alimentation DC-DC Step Down Module [[datasheet][linkId0]]
 + Plateform
-  + ESP32-S2 Saola 1R Dev Kit featuring ESP32-S2 WROVER  [[datasheet][linkId1]]
+  + ESP32-S2 Saola 1R Dev Kit featuring ESP32-S2 WROVER (FCC ID 2AC7Z)  [[datasheet][linkId1]]
 + Sensor
   + omptoncn NJK18 5002C2 NPN NC Hall magnetic sensor Detection distance 0-10mm   
 + Other
